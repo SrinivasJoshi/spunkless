@@ -1,0 +1,10 @@
+{
+    "name": "splunkless-producer",
+    "version": "1.0.0",
+    "description": "Log producer for Splunkless",
+    "main": "src/index.js",
+    "dependencies": {
+      "express": "^4.17.1",
+      "kafkajs": "^2.1.0"
+    }
+  }
