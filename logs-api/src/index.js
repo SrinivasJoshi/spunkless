@@ -13,7 +13,7 @@ app.use(cors());
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 1000, // limit each IP to 100 requests per windowMs
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -93,10 +93,10 @@ app.get('/api/logs', async (req, res) => {
     // Add sorting
     const validSortColumns = ['timestamp', 'service', 'level', 'id'];
     const validSortOrders = ['asc', 'desc'];
-    
+
     const sortColumn = validSortColumns.includes(sort) ? sort : 'timestamp';
     const sortOrder = validSortOrders.includes(order.toLowerCase()) ? order : 'desc';
-    
+
     query += ` ORDER BY ${sortColumn} ${sortOrder}`;
 
     // Add pagination
@@ -164,11 +164,11 @@ app.get('/api/logs/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query('SELECT * FROM logs WHERE id = $1', [id]);
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Log not found' });
     }
-    
+
     res.status(200).json(result.rows[0]);
   } catch (err) {
     console.error('Error fetching log by ID', err);
@@ -222,7 +222,7 @@ app.post('/api/logs/search', async (req, res) => {
       sqlQuery += ` AND timestamp >= $${paramIndex++}`;
       params.push(new Date(timeRange.start));
     }
-    
+
     if (timeRange.end) {
       sqlQuery += ` AND timestamp <= $${paramIndex++}`;
       params.push(new Date(timeRange.end));
@@ -275,7 +275,7 @@ app.post('/api/logs/search', async (req, res) => {
 app.get('/api/stats', async (req, res) => {
   try {
     const { timeRange = '24h' } = req.query;
-    
+
     // Convert timeRange to a PostgreSQL interval
     let interval;
     switch (timeRange) {
@@ -316,7 +316,7 @@ app.get('/api/stats', async (req, res) => {
         GROUP BY service 
         ORDER BY count DESC
       `),
-      
+
       // Count by level
       pool.query(`
         SELECT 
@@ -327,7 +327,7 @@ app.get('/api/stats', async (req, res) => {
         GROUP BY level 
         ORDER BY count DESC
       `),
-      
+
       // Count by hour (for charts)
       pool.query(`
         SELECT 
@@ -338,7 +338,7 @@ app.get('/api/stats', async (req, res) => {
         GROUP BY hour
         ORDER BY hour
       `),
-      
+
       // Top error messages
       pool.query(`
         SELECT 
@@ -394,7 +394,7 @@ app.listen(PORT, () => {
 // Handle graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('Shutting down API server...');
-  
+
   try {
     await pool.end();
     console.log('Database connections closed');
