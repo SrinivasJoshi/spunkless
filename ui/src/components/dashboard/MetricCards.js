@@ -16,24 +16,21 @@ const MetricCards = ({ stats }) => {
         );
     }
 
-    // Calculate total logs (sum of counts by level)
-    const totalLogs = stats?.byLevel?.reduce((sum, item) => sum + item.count, 0) || 0;
+    // Handle both data formats (metrics object or stats with byLevel/byService)
+    const metrics = stats.metrics || {};
+    const byLevel = stats.byLevel || [];
+    const byService = stats.byService || [];
 
-    // Calculate error rate (error + critical levels / total)
-    const errorLogs = stats?.byLevel?.reduce((sum, item) => {
+    // Calculate metrics
+    const totalLogs = metrics.totalLogs || byLevel.reduce((sum, item) => sum + item.count, 0) || 0;
+    const errorLogs = byLevel.reduce((sum, item) => {
         if (['error', 'critical'].includes(item.level)) {
             return sum + item.count;
         }
         return sum;
-    }, 0) || 0;
-
+    }, 0);
     const errorRate = totalLogs > 0 ? ((errorLogs / totalLogs) * 100).toFixed(1) : 0;
-
-    // We'd calculate average response time from the stats if it were available
-    const avgResponseTime = '235'; // Placeholder
-
-    // Count active services
-    const activeServices = stats?.byService?.length || 0;
+    const activeServices = metrics.uniqueServices || byService.length || 0;
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -48,13 +45,13 @@ const MetricCards = ({ stats }) => {
             </div>
 
             <div className="bg-white p-4 rounded shadow">
-                <h3 className="text-sm font-medium text-gray-500">Average Response Time</h3>
-                <p className="mt-1 text-3xl font-semibold text-gray-900">{avgResponseTime}ms</p>
+                <h3 className="text-sm font-medium text-gray-500">Active Services</h3>
+                <p className="mt-1 text-3xl font-semibold text-gray-900">{activeServices}</p>
             </div>
 
             <div className="bg-white p-4 rounded shadow">
-                <h3 className="text-sm font-medium text-gray-500">Active Services</h3>
-                <p className="mt-1 text-3xl font-semibold text-gray-900">{activeServices}</p>
+                <h3 className="text-sm font-medium text-gray-500">Error Count</h3>
+                <p className="mt-1 text-3xl font-semibold text-gray-900">{errorLogs.toLocaleString()}</p>
             </div>
         </div>
     );

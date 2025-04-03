@@ -4,9 +4,15 @@ import React from 'react';
 const ServiceStats = ({ stats }) => {
     if (!stats || !stats.byService || stats.byService.length === 0) {
         return (
-            <div className="bg-white p-4 rounded shadow">
-                <h3 className="text-lg font-medium text-gray-800 mb-3">Logs by Service</h3>
-                <div className="text-gray-500">No data available</div>
+            <div className="bg-white p-6 rounded-lg shadow">
+                <h3 className="text-lg font-medium text-gray-800 mb-4">Logs by Service</h3>
+                <div className="flex flex-col items-center justify-center py-8">
+                    <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+                    </svg>
+                    <p className="mt-4 text-gray-500 text-center">No service data available</p>
+                    <p className="text-sm text-gray-400 text-center mt-1">Try generating some logs or changing the time range</p>
+                </div>
             </div>
         );
     }

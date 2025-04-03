@@ -22,7 +22,7 @@ const pool = new Pool({
 });
 
 // Create Kafka consumer
-const consumer = kafka.consumer({ 
+const consumer = kafka.consumer({
   groupId: process.env.KAFKA_GROUP_ID || 'logs-consumer-group'
 });
 
@@ -63,7 +63,7 @@ async function initializeDatabase() {
     const currentMonth = new Date();
     const nextMonth = new Date(currentMonth);
     nextMonth.setMonth(nextMonth.getMonth() + 1);
-    
+
     const currentMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
     const nextMonthStart = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 1);
     const nextNextMonthStart = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 1);
@@ -90,7 +90,7 @@ async function initializeDatabase() {
 // Insert log into PostgreSQL
 async function insertLog(logEntry) {
   const { timestamp, service, level, message, host, ...metadata } = logEntry;
-  
+
   const query = {
     text: `
       INSERT INTO logs (timestamp, service, level, message, host, metadata)
@@ -98,11 +98,11 @@ async function insertLog(logEntry) {
       RETURNING id
     `,
     values: [
-      new Date(timestamp), 
-      service, 
-      level, 
-      message, 
-      host, 
+      new Date(timestamp),
+      service,
+      level,
+      message,
+      host,
       metadata ? JSON.stringify(metadata) : null
     ],
   };
@@ -118,39 +118,52 @@ async function insertLog(logEntry) {
 
 // Subscribe to Kafka topics and process messages
 async function subscribeToTopics() {
-  // Get list of topics that match our pattern
-  const admin = kafka.admin();
-  await admin.connect();
-  const topics = await admin.listTopics();
-  const logTopics = topics.filter(topic => topic.startsWith('logs-'));
-  await admin.disconnect();
+  try {
+    // Get list of topics that match our pattern
+    const admin = kafka.admin();
+    await admin.connect();
+    const topics = await admin.listTopics();
+    const logTopics = topics.filter(topic => topic.startsWith('logs-'));
+    await admin.disconnect();
 
-  if (logTopics.length === 0) {
-    console.warn('No log topics found. Subscribing to a default pattern.');
-    // Subscribe to all logs topics (using pattern)
-    await consumer.subscribe({ topic: /^logs-.*/, fromBeginning: false });
-  } else {
-    console.log(`Found ${logTopics.length} log topics: ${logTopics.join(', ')}`);
-    // Subscribe to specific topics
-    for (const topic of logTopics) {
-      await consumer.subscribe({ topic, fromBeginning: false });
+    if (logTopics.length === 0) {
+      console.warn('No log topics found. Waiting for topics to be created...');
+      // We'll just wait for topics to be created
+    } else {
+      console.log(`Found ${logTopics.length} log topics: ${logTopics.join(', ')}`);
+      // Subscribe to specific topics in parallel
+      await Promise.all(
+        logTopics.map(topic =>
+          consumer.subscribe({ topic, fromBeginning: true })
+        )
+      );
     }
-  }
 
-  // Process incoming messages
-  await consumer.run({
-    eachMessage: async ({ topic, partition, message }) => {
-      try {
-        const logEntry = JSON.parse(message.value.toString());
-        console.log(`Received log from ${topic}: ${logEntry.service} - ${logEntry.level}`);
-        
-        // Insert into PostgreSQL
-        await insertLog(logEntry);
-      } catch (err) {
-        console.error('Error processing message', err);
-      }
-    },
-  });
+    // Process incoming messages with better error handling
+    await consumer.run({
+      eachMessage: async ({ topic, partition, message }) => {
+        try {
+          const logEntry = JSON.parse(message.value.toString());
+          console.log(`Processing log from ${topic}: ${logEntry.service} - ${logEntry.level}`);
+
+          // Insert into PostgreSQL with better error handling
+          try {
+            const id = await insertLog(logEntry);
+            console.log(`Successfully inserted log with ID: ${id}`);
+          } catch (dbError) {
+            console.error('Failed to insert log into database:', dbError);
+            // You might want to implement retry logic here
+          }
+        } catch (parseError) {
+          console.error('Error processing message:', parseError);
+          console.error('Raw message:', message.value.toString());
+        }
+      },
+    });
+  } catch (error) {
+    console.error('Error in subscribeToTopics:', error);
+    throw error; // Let the startServer function handle the error
+  }
 }
 
 // Health check endpoint
@@ -173,7 +186,7 @@ app.get('/stats', async (req, res) => {
       GROUP BY service, level
       ORDER BY service, level
     `);
-    
+
     res.status(200).json(result.rows);
   } catch (err) {
     console.error('Error fetching stats', err);
@@ -186,18 +199,18 @@ async function startServer() {
   try {
     // Initialize database
     await initializeDatabase();
-    
+
     // Connect consumer to Kafka
     await consumer.connect();
-    
+
     // Subscribe to topics
     await subscribeToTopics();
-    
+
     // Start Express server
     app.listen(process.env.PORT || 8001, () => {
       console.log(`Consumer listening on port ${process.env.PORT || 8001}`);
     });
-    
+
     console.log('Consumer service started successfully');
   } catch (err) {
     console.error('Failed to start server', err);
@@ -208,7 +221,7 @@ async function startServer() {
 // Handle graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('Shutting down...');
-  
+
   try {
     await consumer.disconnect();
     await pool.end();

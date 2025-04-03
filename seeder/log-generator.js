@@ -5,8 +5,8 @@ const CONFIG = {
     producerUrl: 'http://localhost:8000/spunkless-producer-api/logs',
     services: ['web-server', 'auth-service', 'payment-processor', 'user-service', 'inventory-api'],
     levels: ['info', 'warn', 'error', 'debug'],
-    batchSize: 10, // How many logs to send in each batch
-    batchCount: 5, // How many batches to send
+    batchSize: 1, // How many logs to send in each batch
+    batchCount: 1, // How many batches to send
     delayBetweenBatchesMs: 1000, // Delay between batches
 };
 
@@ -111,6 +111,7 @@ async function sendLogBatch(batchNumber) {
                     throw new Error(`Failed to send log: ${res.status} ${res.statusText}`);
                 })
                 .then(data => {
+                    console.log(data);
                     console.log(`✅ Log sent to ${logEntry.service} (${logEntry.level}): "${logEntry.message.substring(0, 40)}..."`);
                     return data;
                 })

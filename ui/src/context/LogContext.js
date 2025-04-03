@@ -283,38 +283,13 @@ export const LogProvider = ({ children }) => {
     const getStats = async (timeRange = '24h') => {
         try {
             setLoading(true);
-
-            try {
-                // Use real API call instead of dummy data
-                const statsData = await api.getStats({ timeRange });
-                setStats(statsData);
-                setError(null);
-            } catch (apiError) {
-                console.warn('API call failed:', apiError);
-                setError('Failed to load statistics. Using fallback data.');
-
-                // Fallback for development purposes
-                const fallbackStats = {
-                    byService: [
-                        { service: 'auth-service', count: 458 },
-                        { service: 'payment-service', count: 312 },
-                    ],
-                    byLevel: [
-                        { level: 'info', count: 652 },
-                        { level: 'error', count: 189 },
-                    ],
-                    byHour: [
-                        { hour: new Date().toISOString(), count: 120 },
-                    ],
-                    topErrors: [
-                        { message: 'Failed to authenticate user', count: 45 },
-                    ]
-                };
-                setStats(fallbackStats);
-            }
+            const response = await api.getStats({ timeRange });
+            setStats(response);
+            return response;
         } catch (err) {
-            console.error('Error in getStats function:', err);
-            setError('Failed to load statistics');
+            console.error('Error fetching stats:', err);
+            setError('Failed to fetch stats');
+            return null;
         } finally {
             setLoading(false);
         }

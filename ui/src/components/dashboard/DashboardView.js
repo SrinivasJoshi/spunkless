@@ -59,23 +59,24 @@ const DashboardView = () => {
   const displayStats = localStats || contextStats;
 
   return (
-    <div>
-      <div className="mb-6 flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-gray-800">Dashboard Overview</h2>
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+        <h2 className="text-2xl font-semibold text-gray-800">Dashboard Overview</h2>
 
-        {/* Time range selector */}
-        <div className="flex items-center">
-          <label htmlFor="timeRange" className="mr-2 text-sm font-medium text-gray-700">
+        {/* Improved Time range selector */}
+        <div className="flex items-center space-x-3 w-full sm:w-auto">
+          <label htmlFor="timeRange" className="text-sm font-medium text-gray-700 whitespace-nowrap">
             Time Range:
           </label>
           <select
             id="timeRange"
             value={timeRange}
             onChange={handleTimeRangeChange}
-            className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className="w-full sm:w-[180px] px-4 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           >
             <option value="1h">Last 1 Hour</option>
             <option value="6h">Last 6 Hours</option>
+            <option value="12h">Last 12 Hours</option>
             <option value="24h">Last 24 Hours</option>
             <option value="7d">Last 7 Days</option>
             <option value="30d">Last 30 Days</option>
@@ -85,7 +86,7 @@ const DashboardView = () => {
 
       {/* Show error message if there's an error */}
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           {error}
         </div>
       )}
@@ -99,22 +100,22 @@ const DashboardView = () => {
 
       {/* Dashboard content */}
       {displayStats && (
-        <>
+        <div className="space-y-6">
           {/* Metric Cards */}
-          <MetricCards metrics={displayStats.metrics} />
+          <MetricCards stats={displayStats} />
 
           {/* Stats Sections */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Service Stats */}
-            <ServiceStats data={displayStats.byService} />
+            <ServiceStats stats={displayStats} />
 
             {/* Level Stats */}
-            <LevelStats data={displayStats.byLevel} />
+            <LevelStats stats={displayStats} />
           </div>
 
           {/* Top Errors */}
-          <TopErrors data={displayStats.topErrors} />
-        </>
+          <TopErrors stats={displayStats} />
+        </div>
       )}
     </div>
   );

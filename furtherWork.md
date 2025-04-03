@@ -4,3 +4,8 @@
 4. Apply CI/Cd
 5. Configurable producer and consumer configs
 6. Read more on kafka, postgres (indexing and partitioning) 
+
+
+UI 
+1. Better inputs 
+2. View details 

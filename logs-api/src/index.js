@@ -271,64 +271,85 @@ app.post('/api/logs/search', async (req, res) => {
   }
 });
 
-// Get statistics and aggregations
+// Get metadata (available services and log levels)
+app.get('/api/metadata', async (req, res) => {
+  try {
+    // Get unique services and levels from the logs table
+    const [servicesResult, levelsResult] = await Promise.all([
+      pool.query('SELECT DISTINCT service FROM logs ORDER BY service'),
+      pool.query('SELECT DISTINCT level FROM logs ORDER BY level')
+    ]);
+
+    res.status(200).json({
+      services: servicesResult.rows.map(row => row.service),
+      levels: levelsResult.rows.map(row => row.level)
+    });
+  } catch (err) {
+    console.error('Error fetching metadata:', err);
+    res.status(500).json({ error: 'Failed to fetch metadata' });
+  }
+});
+
+// Get dashboard stats
 app.get('/api/stats', async (req, res) => {
   try {
     const { timeRange = '24h' } = req.query;
 
-    // Convert timeRange to a PostgreSQL interval
+    // Convert timeRange to PostgreSQL interval
     let interval;
     switch (timeRange) {
-      case '1h':
-        interval = '1 hour';
-        break;
-      case '6h':
-        interval = '6 hours';
-        break;
-      case '24h':
-      case '1d':
-        interval = '1 day';
-        break;
-      case '7d':
-        interval = '7 days';
-        break;
-      case '30d':
-        interval = '30 days';
-        break;
-      default:
-        interval = '1 day'; // Default to 24 hours
+      case '1h': interval = '1 hour'; break;
+      case '6h': interval = '6 hours'; break;
+      case '7d': interval = '7 days'; break;
+      case '30d': interval = '30 days'; break;
+      default: interval = '24 hours';
     }
 
-    // Run different aggregation queries
+    // Run multiple queries in parallel
     const [
+      totalLogs,
       byService,
       byLevel,
-      byHour,
-      topErrors
+      topErrors,
+      recentActivity
     ] = await Promise.all([
-      // Count by service
+      // Total logs count
       pool.query(`
-        SELECT 
-          service, 
-          COUNT(*) as count 
-        FROM logs 
+        SELECT COUNT(*) as total
+        FROM logs
         WHERE timestamp > NOW() - INTERVAL '${interval}'
-        GROUP BY service 
+      `),
+
+      // Logs by service
+      pool.query(`
+        SELECT service, COUNT(*) as count
+        FROM logs
+        WHERE timestamp > NOW() - INTERVAL '${interval}'
+        GROUP BY service
         ORDER BY count DESC
       `),
 
-      // Count by level
+      // Logs by level
       pool.query(`
-        SELECT 
-          level, 
-          COUNT(*) as count 
-        FROM logs 
+        SELECT level, COUNT(*) as count
+        FROM logs
         WHERE timestamp > NOW() - INTERVAL '${interval}'
-        GROUP BY level 
+        GROUP BY level
         ORDER BY count DESC
       `),
 
-      // Count by hour (for charts)
+      // Top errors
+      pool.query(`
+        SELECT message, COUNT(*) as count
+        FROM logs
+        WHERE timestamp > NOW() - INTERVAL '${interval}'
+        AND level = 'error'
+        GROUP BY message
+        ORDER BY count DESC
+        LIMIT 5
+      `),
+
+      // Recent activity trend
       pool.query(`
         SELECT 
           date_trunc('hour', timestamp) as hour,
@@ -336,52 +357,26 @@ app.get('/api/stats', async (req, res) => {
         FROM logs
         WHERE timestamp > NOW() - INTERVAL '${interval}'
         GROUP BY hour
-        ORDER BY hour
-      `),
-
-      // Top error messages
-      pool.query(`
-        SELECT 
-          message,
-          COUNT(*) as count
-        FROM logs
-        WHERE 
-          level IN ('error', 'critical', 'alert', 'emergency') AND
-          timestamp > NOW() - INTERVAL '${interval}'
-        GROUP BY message
-        ORDER BY count DESC
-        LIMIT 10
+        ORDER BY hour DESC
       `)
     ]);
 
+    // Format the response
     res.status(200).json({
+      metrics: {
+        totalLogs: parseInt(totalLogs.rows[0].total),
+        uniqueServices: byService.rows.length,
+        errorCount: byLevel.rows.find(r => r.level === 'error')?.count || 0,
+        warningCount: byLevel.rows.find(r => r.level === 'warn')?.count || 0
+      },
       byService: byService.rows,
       byLevel: byLevel.rows,
-      byHour: byHour.rows,
       topErrors: topErrors.rows,
-      timeRange
+      activityTrend: recentActivity.rows
     });
   } catch (err) {
-    console.error('Error fetching stats', err);
+    console.error('Error fetching stats:', err);
     res.status(500).json({ error: 'Failed to fetch stats' });
-  }
-});
-
-// Get available services and levels (for UI filters)
-app.get('/api/metadata', async (req, res) => {
-  try {
-    const [services, levels] = await Promise.all([
-      pool.query('SELECT DISTINCT service FROM logs ORDER BY service'),
-      pool.query('SELECT DISTINCT level FROM logs ORDER BY level')
-    ]);
-
-    res.status(200).json({
-      services: services.rows.map(row => row.service),
-      levels: levels.rows.map(row => row.level)
-    });
-  } catch (err) {
-    console.error('Error fetching metadata', err);
-    res.status(500).json({ error: 'Failed to fetch metadata' });
   }
 });
 
