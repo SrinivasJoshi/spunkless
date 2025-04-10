@@ -19,6 +19,22 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+// Validation functions
+const validateTimeRange = (range = {}) => {
+  if (!range.start && !range.end) return true;
+  if (!range.start || !range.end) return true; // Allow partial ranges
+  return new Date(range.start) <= new Date(range.end);
+};
+
+const validateMetadata = (metadata = {}) => {
+  if (!metadata || Object.keys(metadata).length === 0) return true;
+  return Object.keys(metadata).every(key =>
+    typeof key === 'string' &&
+    key.length > 0 &&
+    /^[a-zA-Z0-9_]+$/.test(key)
+  );
+};
+
 // Initialize PostgreSQL connection pool
 const pool = new Pool({
   user: process.env.POSTGRES_USER || 'postgres',
@@ -39,8 +55,7 @@ app.get('/api/logs', async (req, res) => {
     const {
       service,
       level,
-      startDate,
-      endDate,
+      timeRange,
       search,
       page = 1,
       limit = 50,
@@ -50,13 +65,18 @@ app.get('/api/logs', async (req, res) => {
 
     // Validate page and limit
     const pageNum = parseInt(page, 10);
-    const limitNum = Math.min(parseInt(limit, 10), 1000); // Cap at 1000 records
+    const limitNum = Math.min(parseInt(limit, 10), 1000);
     const offset = (pageNum - 1) * limitNum;
 
     // Base query
     let query = 'SELECT * FROM logs WHERE 1=1';
     const params = [];
     let paramIndex = 1;
+
+    // Handle timeRange
+    if (timeRange) {
+      query += ` AND timestamp > NOW() - INTERVAL '${timeRange}'`;
+    }
 
     // Add filters
     if (service) {
@@ -67,16 +87,6 @@ app.get('/api/logs', async (req, res) => {
     if (level) {
       query += ` AND level = $${paramIndex++}`;
       params.push(level);
-    }
-
-    if (startDate) {
-      query += ` AND timestamp >= $${paramIndex++}`;
-      params.push(new Date(startDate));
-    }
-
-    if (endDate) {
-      query += ` AND timestamp <= $${paramIndex++}`;
-      params.push(new Date(endDate));
     }
 
     // Add text search
@@ -119,12 +129,8 @@ app.get('/api/logs', async (req, res) => {
       countQuery += ` AND level = $${paramIndex++}`;
     }
 
-    if (startDate) {
-      countQuery += ` AND timestamp >= $${paramIndex++}`;
-    }
-
-    if (endDate) {
-      countQuery += ` AND timestamp <= $${paramIndex++}`;
+    if (timeRange) {
+      countQuery += ` AND timestamp > NOW() - INTERVAL '${timeRange}'`;
     }
 
     if (search) {
@@ -176,22 +182,34 @@ app.get('/api/logs/:id', async (req, res) => {
   }
 });
 
-// Advanced search with full-text search capabilities
 app.post('/api/logs/search', async (req, res) => {
   try {
     const {
-      query,             // Full text search query
-      services = [],     // Array of services to filter by
-      levels = [],       // Array of levels to filter by
-      timeRange = {},    // { start: ISO date, end: ISO date }
-      metadata = {},     // Key-value pairs to search in metadata
+      query,
+      services = [],
+      levels = [],
+      timeRange = {},
+      metadata = {},
       page = 1,
-      limit = 50
+      limit = 20
     } = req.body;
+
+    // Validate inputs
+    if (!validateTimeRange(timeRange)) {
+      return res.status(400).json({
+        error: 'Invalid time range. Start date must be before or equal to end date.'
+      });
+    }
+
+    if (!validateMetadata(metadata)) {
+      return res.status(400).json({
+        error: 'Invalid metadata format. Keys must be non-empty and contain only letters, numbers, and underscores.'
+      });
+    }
 
     // Validate page and limit
     const pageNum = parseInt(page, 10);
-    const limitNum = Math.min(parseInt(limit, 10), 1000); // Cap at 1000 records
+    const limitNum = Math.min(parseInt(limit, 10), 1000);
     const offset = (pageNum - 1) * limitNum;
 
     // Build the query
@@ -200,21 +218,25 @@ app.post('/api/logs/search', async (req, res) => {
     let paramIndex = 1;
 
     // Apply full text search on message
-    if (query) {
-      sqlQuery += ` AND to_tsvector('english', message) @@ plainto_tsquery('english', $${paramIndex++})`;
-      params.push(query);
+    if (query && query.trim()) {
+      sqlQuery += ` AND (
+        message ILIKE $${paramIndex} OR
+        to_tsvector('english', message) @@ plainto_tsquery('english', $${paramIndex})
+      )`;
+      params.push(`%${query.trim()}%`);
+      paramIndex++;
     }
 
     // Apply service filter
-    if (services.length > 0) {
-      sqlQuery += ` AND service IN (${services.map((_, i) => `$${paramIndex++}`).join(',')})`;
-      params.push(...services);
+    if (services && services.length > 0) {
+      sqlQuery += ` AND service = ANY($${paramIndex++})`;
+      params.push(services);
     }
 
     // Apply level filter
-    if (levels.length > 0) {
-      sqlQuery += ` AND level IN (${levels.map((_, i) => `$${paramIndex++}`).join(',')})`;
-      params.push(...levels);
+    if (levels && levels.length > 0) {
+      sqlQuery += ` AND level = ANY($${paramIndex++})`;
+      params.push(levels);
     }
 
     // Apply time range filter
@@ -228,11 +250,11 @@ app.post('/api/logs/search', async (req, res) => {
       params.push(new Date(timeRange.end));
     }
 
-    // Apply metadata filters (JSONB queries)
-    if (Object.keys(metadata).length > 0) {
+    // Apply metadata filters - Fixed version
+    if (metadata && Object.keys(metadata).length > 0) {
       Object.entries(metadata).forEach(([key, value]) => {
-        sqlQuery += ` AND metadata->>'${key}' = $${paramIndex++}`;
-        params.push(value.toString());
+        sqlQuery += ` AND metadata->'metadata' @> $${paramIndex++}`;
+        params.push(JSON.stringify({ [key]: Number(value) }));  // Convert to number since userId is numeric
       });
     }
 
@@ -243,9 +265,9 @@ app.post('/api/logs/search', async (req, res) => {
     sqlQuery += ` LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
     params.push(limitNum, offset);
 
-    // Count query for pagination (without limit/offset)
-    let countQuery = sqlQuery.split(' LIMIT ')[0].replace('SELECT *', 'SELECT COUNT(*)');
-    const countParams = params.slice(0, params.length - 2);
+    // Count query (without ORDER BY, LIMIT and OFFSET)
+    const countQuery = sqlQuery.split(' ORDER BY ')[0].replace('SELECT *', 'SELECT COUNT(*)');
+    const countParams = params.slice(0, -2);
 
     // Execute queries
     const [logsResult, countResult] = await Promise.all([
@@ -266,8 +288,11 @@ app.post('/api/logs/search', async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error in advanced search', err);
-    res.status(500).json({ error: 'Failed to search logs' });
+    console.error('Error in advanced search:', err);
+    res.status(500).json({
+      error: 'Failed to perform advanced search',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
 

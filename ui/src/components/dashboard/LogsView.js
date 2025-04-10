@@ -65,40 +65,40 @@ const LogsView = () => {
     };
 
     return (
-        <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Log Explorer</h2>
+        <div className="flex flex-col min-h-full">
+            {/* Sticky Filters */}
+            <div className="sticky top-0 z-50 bg-gray-100 py-4 px-4 mb-1">
+                <LogFilters
+                    filters={filters}
+                    services={services}
+                    levels={levels}
+                    onFilterChange={handleFilterChange}
+                />
+            </div>
 
-            {/* Filters */}
-            <LogFilters
-                filters={filters}
-                services={services}
-                levels={levels}
-                onFilterChange={handleFilterChange}
-            />
+            {/* Main Content */}
+            <div className="flex-1 px-4">
+                {error && (
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                        {error}
+                    </div>
+                )}
 
-            {/* Show error message if there's an error */}
-            {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                    {error}
+                <div className="bg-white rounded shadow overflow-hidden">
+                    <LogTable
+                        logs={logs}
+                        loading={loading}
+                        onViewDetails={handleViewDetails}
+                    />
+
+                    <Pagination
+                        currentPage={pagination.page}
+                        totalPages={pagination.totalPages}
+                        totalItems={pagination.totalCount}
+                        itemsPerPage={pagination.limit}
+                        onPageChange={handlePageChange}
+                    />
                 </div>
-            )}
-
-            {/* Logs Table */}
-            <div className="bg-white rounded shadow overflow-hidden">
-                <LogTable
-                    logs={logs}
-                    loading={loading}
-                    onViewDetails={handleViewDetails}
-                />
-
-                {/* Pagination */}
-                <Pagination
-                    currentPage={pagination.page}
-                    totalPages={pagination.totalPages}
-                    totalItems={pagination.totalCount}
-                    itemsPerPage={pagination.limit}
-                    onPageChange={handlePageChange}
-                />
             </div>
         </div>
     );

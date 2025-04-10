@@ -28,7 +28,7 @@ const LevelStats = ({ stats }) => {
                     // Determine color based on level
                     let barColor = 'bg-blue-500';
                     if (item.level === 'error') barColor = 'bg-red-500';
-                    else if (item.level === 'warning') barColor = 'bg-yellow-500';
+                    else if (item.level === 'warn') barColor = 'bg-yellow-500';
                     else if (item.level === 'critical') barColor = 'bg-red-700';
                     else if (item.level === 'debug') barColor = 'bg-gray-500';
 

@@ -1,139 +1,3 @@
-// // src/context/LogContext.js
-// import React, { createContext, useState, useContext, useEffect } from 'react';
-// import { getLogs, getStats, getMetadata } from '../data/api';
-
-// // Create the context
-// export const LogContext = createContext();
-
-// // Create a provider component
-// export const LogProvider = ({ children }) => {
-//     // State for logs data
-//     const [logs, setLogs] = useState([]);
-//     const [loading, setLoading] = useState(true);
-//     const [error, setError] = useState(null);
-//     const [pagination, setPagination] = useState({
-//         page: 1,
-//         limit: 50,
-//         totalCount: 0,
-//         totalPages: 0
-//     });
-
-//     // State for filters
-//     const [filters, setFilters] = useState({
-//         service: '',
-//         level: '',
-//         startDate: '',
-//         endDate: '',
-//         search: '',
-//         sort: 'timestamp',
-//         order: 'desc'
-//     });
-
-//     // State for stats
-//     const [stats, setStats] = useState(null);
-
-//     // State for metadata (services, levels)
-//     const [metadata, setMetadata] = useState({
-//         services: [],
-//         levels: []
-//     });
-
-//     // State for active tab
-//     const [activeTab, setActiveTab] = useState('dashboard');
-
-//     // State for selected log (for detail view)
-//     const [selectedLog, setSelectedLog] = useState(null);
-
-//     // Function to fetch logs
-//     const fetchLogs = async () => {
-//         setLoading(true);
-//         try {
-//             const { service, level, startDate, endDate, search, sort, order } = filters;
-//             const { page, limit } = pagination;
-
-//             const result = await getLogs({
-//                 service,
-//                 level,
-//                 startDate,
-//                 endDate,
-//                 search,
-//                 page,
-//                 limit,
-//                 sort,
-//                 order
-//             });
-
-//             setLogs(result.data);
-//             setPagination(result.pagination);
-//             setError(null);
-//         } catch (err) {
-//             setError('Failed to fetch logs');
-//             console.error(err);
-//         } finally {
-//             setLoading(false);
-//         }
-//     };
-
-//     // Function to fetch stats
-//     const fetchStats = async (timeRange = '24h') => {
-//         try {
-//             const result = await getStats(timeRange);
-//             setStats(result);
-//         } catch (err) {
-//             console.error('Failed to fetch stats:', err);
-//         }
-//     };
-
-//     // Function to fetch metadata
-//     const fetchMetadata = async () => {
-//         try {
-//             const result = await getMetadata();
-//             setMetadata(result);
-//         } catch (err) {
-//             console.error('Failed to fetch metadata:', err);
-//         }
-//     };
-
-//     // Load metadata on initial mount
-//     useEffect(() => {
-//         fetchMetadata();
-//     }, []);
-
-//     // Value to be provided by the context
-//     const contextValue = {
-//         logs,
-//         loading,
-//         error,
-//         pagination,
-//         filters,
-//         stats,
-//         metadata,
-//         activeTab,
-//         selectedLog,
-//         setFilters,
-//         setPagination,
-//         fetchLogs,
-//         fetchStats,
-//         setActiveTab,
-//         setSelectedLog
-//     };
-
-//     return (
-//         <LogContext.Provider value={contextValue}>
-//             {children}
-//         </LogContext.Provider>
-//     );
-// };
-
-// // Custom hook to use the log context
-// export const useLogs = () => {
-//     const context = useContext(LogContext);
-//     if (!context) {
-//         throw new Error('useLogs must be used within a LogProvider');
-//     }
-//     return context;
-// };
-
 // src/context/LogContext.js
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import * as api from '../data/api';
@@ -167,7 +31,7 @@ export const LogProvider = ({ children }) => {
 
     const [pagination, setPagination] = useState({
         page: 1,
-        limit: 50,
+        limit: 20,
         totalCount: 0,
         totalPages: 0
     });
@@ -296,35 +160,13 @@ export const LogProvider = ({ children }) => {
     };
 
     // Search logs with advanced criteria
-    const searchLogs = async (searchCriteria) => {
+    const searchLogs = async (searchParams) => {
         try {
             setLoading(true);
-
-            try {
-                // Use real API call
-                const response = await api.searchLogs(searchCriteria);
-                setError(null);
-                return response;
-            } catch (apiError) {
-                console.warn('API call failed:', apiError);
-                setError('Search failed. Using fallback data.');
-
-                // Return dummy data as fallback
-                return {
-                    data: [
-                        { id: 1, timestamp: new Date().toISOString(), service: 'auth-service', level: 'error', message: 'Sample search result' },
-                    ],
-                    pagination: {
-                        page: 1,
-                        limit: 50,
-                        totalCount: 1,
-                        totalPages: 1
-                    }
-                };
-            }
+            const response = await api.searchLogs(searchParams);
+            return response;
         } catch (err) {
-            console.error('Error in searchLogs function:', err);
-            setError('Failed to search logs');
+            console.error('Error searching logs:', err);
             throw err;
         } finally {
             setLoading(false);

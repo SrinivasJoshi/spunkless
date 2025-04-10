@@ -5,8 +5,8 @@ const CONFIG = {
     producerUrl: 'http://localhost:8000/spunkless-producer-api/logs',
     services: ['web-server', 'auth-service', 'payment-processor', 'user-service', 'inventory-api'],
     levels: ['info', 'warn', 'error', 'debug'],
-    batchSize: 1, // How many logs to send in each batch
-    batchCount: 1, // How many batches to send
+    batchSize: 7, // How many logs to send in each batch
+    batchCount: 7, // How many batches to send
     delayBetweenBatchesMs: 1000, // Delay between batches
 };
 

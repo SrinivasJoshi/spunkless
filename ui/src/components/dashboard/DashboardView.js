@@ -10,45 +10,24 @@ const DashboardView = () => {
   const { getStats, loading, error, stats: contextStats } = useContext(LogContext);
   const [localStats, setLocalStats] = useState(null);
   const [timeRange, setTimeRange] = useState('24h');
-  const mountedRef = useRef(true);
-  const fetchingRef = useRef(false);
 
-  // Fetch stats when component mounts or timeRange changes
   useEffect(() => {
-    // Use existing stats if available
-    if (contextStats) {
-      setLocalStats(contextStats);
-    }
-
-    // Flag to prevent multiple concurrent requests
-    if (fetchingRef.current) return;
-
     const fetchDashboardStats = async () => {
-      if (!mountedRef.current) return;
 
       try {
-        fetchingRef.current = true;
         const statsData = await getStats(timeRange);
-
-        if (!mountedRef.current) return;
 
         if (statsData) {
           setLocalStats(statsData);
         }
       } catch (err) {
         console.error('Error in dashboard stats fetch:', err);
-      } finally {
-        fetchingRef.current = false;
       }
     };
 
     fetchDashboardStats();
 
-    // Cleanup function
-    return () => {
-      mountedRef.current = false;
-    };
-  }, [timeRange]); // Remove getStats from dependencies
+  }, [timeRange]);
 
   // Handle time range change
   const handleTimeRangeChange = (e) => {
@@ -72,7 +51,8 @@ const DashboardView = () => {
             id="timeRange"
             value={timeRange}
             onChange={handleTimeRangeChange}
-            className="w-full sm:w-[180px] px-4 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full sm:w-[180px] px-4 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-indigo-300 focus:border-indigo-300 pr-8 appearance-none bg-no-repeat bg-[length:1em_1em] bg-[right_0.75rem_center]"
+            style={{ backgroundImage: "url('data:image/svg+xml;utf8,<svg fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M19 9l-7 7-7-7\" /></svg>')" }}
           >
             <option value="1h">Last 1 Hour</option>
             <option value="6h">Last 6 Hours</option>

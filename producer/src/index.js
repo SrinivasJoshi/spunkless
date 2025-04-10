@@ -1,4 +1,4 @@
-const { Kafka } = require('kafkajs')
+const { Kafka, Partitioners } = require('kafkajs')
 const express = require('express');
 
 const kafka = new Kafka({
@@ -9,14 +9,51 @@ const kafka = new Kafka({
 const app = express();
 app.use(express.json());
 
-const producer = kafka.producer();
+// Create producer with retry configuration
+const producer = kafka.producer({
+  createPartitioner: Partitioners.LegacyPartitioner,
+  retry: {
+    initialRetryTime: 100,
+    retries: 8
+  }
+});
+
+// Add a function to ensure Kafka is ready
+async function ensureTopicExists(topic) {
+  const admin = kafka.admin();
+  try {
+    await admin.connect();
+    const topics = await admin.listTopics();
+
+    if (!topics.includes(topic)) {
+      await admin.createTopics({
+        topics: [{
+          topic,
+          numPartitions: 1,
+          replicationFactor: 1
+        }]
+      });
+      console.log(`Created topic ${topic}`);
+    }
+  } finally {
+    await admin.disconnect();
+  }
+}
 
 // Connect to Kafka on startup
 async function startServer() {
-  await producer.connect();
-  app.listen(process.env.PORT || 8000, () => {
-    console.log(`Producer listening on portt ${process.env.PORT || 8000}`);
-  });
+  try {
+    await producer.connect();
+    console.log('Successfully connected to Kafka');
+
+    const port = process.env.PORT || 8000;
+    app.listen(port, () => {
+      console.log(`Producer listening on port ${port}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
 }
 
 // API endpoint for log ingestion
@@ -33,10 +70,12 @@ app.post('/spunkless-producer-api/logs', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Determine topic based on service or other criteria
     const topic = `logs-${logEntry.service}`;
 
-    // Send to Kafka
+    // Ensure topic exists before sending
+    await ensureTopicExists(topic);
+
+    // Send to Kafka with retry
     await producer.send({
       topic,
       messages: [{ value: JSON.stringify(logEntry) }]
@@ -51,8 +90,14 @@ app.post('/spunkless-producer-api/logs', async (req, res) => {
 
 // Handle graceful shutdown
 process.on('SIGTERM', async () => {
-  await producer.disconnect();
-  process.exit(0);
+  try {
+    await producer.disconnect();
+    console.log('Producer disconnected');
+    process.exit(0);
+  } catch (error) {
+    console.error('Error during shutdown:', error);
+    process.exit(1);
+  }
 });
 
 startServer().catch(console.error);
