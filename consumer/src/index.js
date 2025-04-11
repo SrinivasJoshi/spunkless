@@ -116,43 +116,78 @@ async function insertLog(logEntry) {
   }
 }
 
-// Subscribe to Kafka topics and process messages
-async function subscribeToTopics() {
+// Track topics and consumer state
+const subscribedTopics = new Set();
+let consumerRunning = false;
+const TOPIC_CHECK_INTERVAL = 10000; // 10 seconds
+
+// Function to check for new topics
+async function checkForNewTopics() {
   try {
-    // Get list of topics that match our pattern
     const admin = kafka.admin();
     await admin.connect();
     const topics = await admin.listTopics();
     const logTopics = topics.filter(topic => topic.startsWith('logs-'));
     await admin.disconnect();
-
+    
     if (logTopics.length === 0) {
       console.warn('No log topics found. Waiting for topics to be created...');
-      // We'll just wait for topics to be created
-    } else {
-      console.log(`Found ${logTopics.length} log topics: ${logTopics.join(', ')}`);
-      // Subscribe to specific topics in parallel
-      await Promise.all(
-        logTopics.map(topic =>
-          consumer.subscribe({ topic, fromBeginning: true })
-        )
-      );
+      return false;
     }
+    
+    // Find new topics
+    const newTopics = logTopics.filter(topic => !subscribedTopics.has(topic));
+    
+    if (newTopics.length > 0) {
+      console.log(`Found ${newTopics.length} new log topics: ${newTopics.join(', ')}`);
+      
+      // If consumer is running, we need to restart it
+      if (consumerRunning) {
+        console.log('Stopping consumer to subscribe to new topics...');
+        await consumer.stop();
+        consumerRunning = false;
+      }
+      
+      // Add new topics to our tracking set
+      newTopics.forEach(topic => subscribedTopics.add(topic));
+      
+      // Subscribe to all topics again
+      for (const topic of subscribedTopics) {
+        await consumer.subscribe({ topic, fromBeginning: true });
+        console.log(`Subscribed to topic: ${topic}`);
+      }
+      
+      // Restart consumer if it was running
+      if (!consumerRunning) {
+        startConsumer();
+      }
+      
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error checking for new topics:', error);
+    return false;
+  }
+}
 
-    // Process incoming messages with better error handling
+// Function to start the consumer
+async function startConsumer() {
+  if (consumerRunning) return;
+  
+  try {
     await consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
         try {
           const logEntry = JSON.parse(message.value.toString());
           console.log(`Processing log from ${topic}: ${logEntry.service} - ${logEntry.level}`);
-
-          // Insert into PostgreSQL with better error handling
+          
           try {
             const id = await insertLog(logEntry);
             console.log(`Successfully inserted log with ID: ${id}`);
           } catch (dbError) {
             console.error('Failed to insert log into database:', dbError);
-            // You might want to implement retry logic here
           }
         } catch (parseError) {
           console.error('Error processing message:', parseError);
@@ -160,9 +195,12 @@ async function subscribeToTopics() {
         }
       },
     });
+    
+    consumerRunning = true;
+    console.log('Consumer started and is processing messages');
   } catch (error) {
-    console.error('Error in subscribeToTopics:', error);
-    throw error; // Let the startServer function handle the error
+    console.error('Error starting consumer:', error);
+    consumerRunning = false;
   }
 }
 
@@ -195,22 +233,28 @@ app.get('/stats', async (req, res) => {
 });
 
 // Connect to Kafka and start server
+// Initialize and start
 async function startServer() {
   try {
-    // Initialize database
     await initializeDatabase();
-
-    // Connect consumer to Kafka
     await consumer.connect();
-
-    // Subscribe to topics
-    await subscribeToTopics();
-
+    
+    // Initial topic check
+    await checkForNewTopics();
+    
+    // Start consumer if topics were found
+    if (subscribedTopics.size > 0 && !consumerRunning) {
+      await startConsumer();
+    }
+    
+    // Schedule periodic checks
+    setInterval(checkForNewTopics, TOPIC_CHECK_INTERVAL);
+    
     // Start Express server
     app.listen(process.env.PORT || 8001, () => {
       console.log(`Consumer listening on port ${process.env.PORT || 8001}`);
     });
-
+    
     console.log('Consumer service started successfully');
   } catch (err) {
     console.error('Failed to start server', err);

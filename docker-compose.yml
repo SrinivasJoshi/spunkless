@@ -31,7 +31,7 @@ services:
       driver: "none"
     healthcheck:
       test: ["CMD", "kafka-topics", "--list", "--bootstrap-server", "kafka:9092"]
-      interval: 10s
+      interval: 20s
       timeout: 5s
       retries: 10
   postgres:
@@ -109,6 +109,14 @@ services:
     deploy:
       mode: replicated
       replicas: 1  # Can be scaled horizontally
+  ui:
+    build: ./ui
+    container_name: ui
+    ports:
+      - "80:80"
+    depends_on:
+      - logs-api
+      - producer
 volumes:
   postgres_data:
 

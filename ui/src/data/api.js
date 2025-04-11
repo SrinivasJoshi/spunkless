@@ -1,7 +1,7 @@
 // src/data/api.js
 
 // Base URL - you'll need to update this to match your backend
-const BASE_URL = 'http://localhost:8002';
+const BASE_URL = '';
 
 /**
  * Fetches logs with filtering and pagination
