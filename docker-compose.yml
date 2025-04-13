@@ -114,6 +114,10 @@ services:
     container_name: ui
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - ./ui:/app
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - logs-api
       - producer
