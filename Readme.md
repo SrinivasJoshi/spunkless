@@ -1,16 +1,45 @@
 # Spunkless - Distributed Logging System
 
-A modern, scalable logging infrastructure built with Node.js, Kafka, and PostgreSQL.
+A modern, scalable logging infrastructure built with Node.js, Kafka, and PostgreSQL. Live at [spunkless.xyz](https://spunkless.xyz)
 
 ## System Architecture
 
-![Architecture](https://via.placeholder.com/800x400?text=Spunkless+Architecture)
+```mermaid
+graph LR
+    A[Application] -->|HTTP| B[Producer API]
+    B -->|Publish| C[Kafka]
+    C -->|Consume| D[Consumer]
+    D -->|Store| E[PostgreSQL]
+    E -->|Query| F[Logs API]
+    F -->|Display| G[React UI]
+```
 
-The system consists of three main components:
+The system consists of:
 
 1. **Log Producer** - REST API for receiving logs from applications
-2. **Log Consumer** - Service that consumes logs from Kafka and stores them in PostgreSQL
-3. **Logs API** - REST API for searching, filtering, and analyzing logs
+2. **Kafka** - Message broker for reliable message delivery
+3. **Log Consumer** - Service that consumes logs from Kafka and stores them in PostgreSQL
+4. **PostgreSQL** - Database with partitioning and full-text search
+5. **Logs API** - REST API for searching and analyzing logs
+6. **React UI** - Frontend dashboard for visualization and search
+
+## Features
+
+- **High-throughput log ingestion** via Kafka message broker
+- **Advanced search capabilities** with full-text search and metadata filtering
+- **Real-time analytics** with aggregations and statistics
+- **Horizontal scalability** across all components
+- **Table partitioning** for efficient storage and querying
+- **SSL/TLS secured** with nginx reverse proxy
+
+## Tech Stack
+
+- **Backend**: Node.js, Express.js
+- **Message Broker**: Apache Kafka with Zookeeper
+- **Database**: PostgreSQL with GIN indexing
+- **Frontend**: React, TailwindCSS
+- **Infrastructure**: Docker, Docker Compose, DigitalOcean
+- **CI/CD**: GitHub Actions
 
 ## Prerequisites
 
@@ -21,13 +50,13 @@ The system consists of three main components:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/spunkless.git
+   git clone https://github.com/SrinivasJoshi/spunkless.git
    cd spunkless
    ```
 
 2. Start the services:
    ```bash
-   docker-compose up -d
+   docker-compose -f docker-compose.local.yml up -d --build
    ```
 
 3. Send a test log:
@@ -41,49 +70,48 @@ The system consists of three main components:
      }'
    ```
 
-4. Query the logs API:
-   ```bash
-   curl "http://localhost:8002/api/logs?service=test-service"
-   ```
+4. Access the UI at http://localhost
 
 ## Services
 
 ### Producer (Port 8000)
-
-The producer service exposes a REST API endpoint for log ingestion:
-
 - **POST /spunkless-producer-api/logs** - Submit logs to the system
+- Creates Kafka topics dynamically per service
+- Handles message serialization and delivery
 
-### Consumer
-
-The consumer service processes logs from Kafka and stores them in PostgreSQL. It doesn't expose any external ports as it operates as a background service.
+### Consumer 
+- Processes logs from Kafka topics
+- Implements table partitioning by timestamp
+- Creates GIN indexes for full-text search
+- Handles concurrent topic subscription
 
 ### Logs API (Port 8002)
-
-The Logs API provides endpoints for searching and analyzing logs:
-
 - **GET /api/logs** - Get logs with filtering and pagination
 - **POST /api/logs/search** - Advanced search with full-text capabilities
-- **GET /api/stats** - Get log statistics and aggregations
-- **GET /api/metadata** - Get available services and log levels
+- **GET /api/stats** - Real-time statistics and aggregations
+- **GET /api/metadata** - Available services and log levels
 
-## Development
+### UI (Port 80/443)
+- React-based dashboard
+- Real-time log visualization
+- Advanced filtering and search
+- Log analytics and statistics
 
-Each service has its own directory with a dedicated `package.json` file. To run a service in development mode:
+## Deployment
 
-```bash
-cd <service-directory>
-npm install
-npm run dev
-```
+The system is deployed to DigitalOcean using:
+- Docker Compose for container orchestration
+- GitHub Actions for CD
+- Let's Encrypt for SSL certificates
+- Nginx for reverse proxy and SSL termination
 
-## Scaling
+## Architecture Decisions
 
-The system is designed to be horizontally scalable:
-
-- Producer and Logs API can be scaled by adding more instances behind a load balancer
-- Consumer can be scaled by adding more instances with the same consumer group ID
-- Kafka and PostgreSQL can be clustered for higher availability
+1. **Table Partitioning**: PostgreSQL tables are partitioned by month for efficient querying
+2. **Full-text Search**: GIN indexes on message and metadata fields
+3. **Dynamic Topics**: Each service gets its own Kafka topic
+4. **Microservices**: Each component can scale independently
+5. **SSL/TLS**: Production deployment uses HTTPS with Let's Encrypt
 
 ## License
 

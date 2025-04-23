@@ -8,6 +8,7 @@ import LogsView from './dashboard/LogsView';
 import DashboardView from './dashboard/DashboardView';
 import LogDetailView from './dashboard/LogDetailView';
 import AdvancedSearchView from './dashboard/AdvancedSearchView';
+import AddDummyLogButton from './AddDummyLogButton';
 
 const LoggingDashboard = () => {
     const { activeTab, selectedLog } = useLogs();
@@ -28,6 +29,8 @@ const LoggingDashboard = () => {
 
                 {selectedLog && <LogDetailView />}
             </main>
+
+            {activeTab === 'dashboard' && <AddDummyLogButton />}
         </div>
     );
 };

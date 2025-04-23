@@ -27,7 +27,7 @@ const Header = () => {
     return (
         <header className="bg-white shadow">
             <div className="max-w-7xl mx-auto px-4 py-4">
-                <h1 className="text-2xl font-bold text-gray-900">Log Management Dashboard</h1>
+                <h1 className="text-2xl font-bold text-gray-900 text-center md:text-left">Log Management Dashboard</h1>
 
                 {/* Tabs Navigation */}
                 <TabNavigation

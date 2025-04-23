@@ -29,9 +29,9 @@ const LogFilters = ({ filters, services = [], levels = [], onFilterChange }) => 
     };
 
     return (
-        <div className="bg-white p-4 mb-2 rounded-lg shadow-sm border border-gray-200">
-            <form onSubmit={handleSubmit} className="space-y-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white p-0 md:p-4 md:mb-2 md:rounded-lg md:shadow-sm md:border md:border-gray-200">
+            <form onSubmit={handleSubmit} className="space-y-4 md:space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-3">
                     {/* Service Dropdown */}
                     <div className="space-y-2">
                         <label className="block text-sm font-medium text-gray-700">Service</label>
@@ -131,17 +131,18 @@ const LogFilters = ({ filters, services = [], levels = [], onFilterChange }) => 
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex space-x-3 ml-auto">
+                    {/* Action Buttons */}
+                    <div className="flex space-x-3 w-full md:w-auto md:ml-auto">
                         <button
                             type="button"
                             onClick={handleReset}
-                            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            className="flex-1 md:flex-none px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                         >
                             Reset
                         </button>
                         <button
                             type="submit"
-                            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            className="flex-1 md:flex-none px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                         >
                             Apply Filters
                         </button>
